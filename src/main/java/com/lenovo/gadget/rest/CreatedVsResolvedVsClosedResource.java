@@ -1,11 +1,19 @@
 package com.lenovo.gadget.rest;
 
+import com.atlassian.core.util.bean.PagerFilter;
 import com.atlassian.jira.bc.issue.search.SearchService;
 import com.atlassian.jira.charts.Chart;
 import com.atlassian.jira.charts.ChartFactory;
 import com.atlassian.jira.charts.jfreechart.TimePeriodUtils;
 import com.atlassian.jira.charts.util.ChartUtils;
+import com.atlassian.jira.config.ConstantsManager;
+import com.atlassian.jira.issue.Issue;
+import com.atlassian.jira.issue.IssueConstant;
+import com.atlassian.jira.issue.search.SearchException;
 import com.atlassian.jira.issue.search.SearchRequest;
+import com.atlassian.jira.issue.search.SearchResults;
+import com.atlassian.jira.issue.statistics.StatisticsMapper;
+import com.atlassian.jira.issue.statistics.StatusStatisticsMapper;
 import com.atlassian.jira.project.Project;
 import com.atlassian.jira.project.ProjectManager;
 import com.atlassian.jira.security.JiraAuthenticationContext;
@@ -18,14 +26,17 @@ import com.atlassian.jira.util.ErrorCollection.Reason;
 import com.atlassian.jira.util.velocity.VelocityRequestContextFactory;
 import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
 import com.atlassian.plugins.rest.common.security.AnonymousAllowed;
+import com.atlassian.query.Query;
 
 import static com.atlassian.jira.permission.ProjectPermissions.BROWSE_PROJECTS;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TimeZone;
+import java.util.TreeMap;
 
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
@@ -65,7 +76,7 @@ public class CreatedVsResolvedVsClosedResource {
 	static final String PROJECT = "project";
 	private static final String SEARCH_REQUEST = "searchRequest";
 	
-	@ComponentImport
+	//@ComponentImport
 	@Inject
 	private ChartUtils chartUtils;
 	@ComponentImport
@@ -96,6 +107,11 @@ public class CreatedVsResolvedVsClosedResource {
 	@Inject
 	@ComponentImport
 	private ProjectManager projectManager;
+	
+	@Inject
+	private ConstantsManager constantManager;
+	
+	
 	
     @GET
     @AnonymousAllowed
@@ -132,6 +148,7 @@ public class CreatedVsResolvedVsClosedResource {
 		final Map<String, Object> params = new HashMap<String, Object>();
 		Project prjs = projectManager.getProjectByCurrentKey("TEST");
 		System.out.println("Projects: " +  prjs.getId());
+		
 		searchRequest = getSearchRequestAndValidate(queryString, errors, params);
 		//		final ChartFactory.PeriodName period = resourceDateValidator.validatePeriod(PERIOD_NAME, periodName, errors);
 		//		final int numberOfDays = resourceDateValidator.validateDaysPrevious(DAYS_NAME, period, days, errors);
@@ -140,9 +157,13 @@ public class CreatedVsResolvedVsClosedResource {
 		/*if (!errors.isEmpty()) {
 			return Response.status(400).entity(new CreatedVsResolvedVsClosedResourceModel("There was some problem")).build();
 		}*/
-
+		
 		final ChartFactory.ChartContext context = new ChartFactory.ChartContext(user, searchRequest, width, height, inline);
 		try{
+			SearchResults searchResults =  searchService.search(user, searchRequest.getQuery(),new com.atlassian.jira.web.bean.PagerFilter().getUnlimitedFilter());
+			for(Issue issue: searchResults.getIssues()){
+				System.out.println(issue.getSummary() + issue.getCreated() +" ::::::: " + issue.getStatus().getName());
+			} 
 			final Chart chart = chartFactory.generateCreatedVsResolvedChart(context, 10,ChartFactory.PeriodName.valueOf("daily") , ChartFactory.VersionLabel.valueOf("major"), isCumulative, showUnresolvedTrend);
 			System.out.println(chart.toString());
 
@@ -165,6 +186,7 @@ public class CreatedVsResolvedVsClosedResource {
 				final XYURLGenerator completeUrlGenerator = (XYURLGenerator) chart.getParameters().get("completeDatasetUrlGenerator");
 				data = generateDataSet(completeDataset, completeUrlGenerator, chartDataset, showUnresolvedTrend);
 			}
+			getResolvedIssues(searchRequest.getQuery(), user);
 			return Response.ok(new CreatedVsResolvedVsClosedResourceModel("Created : " + issuesCreated + " Resolved : " + issuesResolved + " Closed : " + issuesClosed)).build();
 		}catch(Exception ex){
 			ex.printStackTrace();
@@ -245,15 +267,15 @@ public class CreatedVsResolvedVsClosedResource {
 		}
 	}
 
-	/*private Map<RegularTimePeriod, Number> getResolvedIssues(Query query, ApplicationUser remoteUser, final ChartFactory.PeriodName periodName)
+	private Map<RegularTimePeriod, Number> getResolvedIssues(Query query, ApplicationUser remoteUser)
 			throws IOException, SearchException {
 		  final Map<RegularTimePeriod, Number> data = new TreeMap<RegularTimePeriod, Number>();
-		  StatisticsMapper resolvedMapper = new DatePeriodStatisticsMapper(ChartUtil.getTimePeriodClass(periodName), DocumentConstants.ISSUE_STATUS, getTimeZone());
-
-		Collector hitCollector = new OneDimensionalObjectHitCollector(resolvedMapper, data, true);
+		  StatusStatisticsMapper resolvedMapper = new  StatusStatisticsMapper(constantManager);//DatePeriodStatisticsMapper(ChartUtil.getTimePeriodClass(periodName), DocumentConstants.ISSUE_STATUS, getTimeZone());
+		 System.out.println("resolvedMapper :" + resolvedMapper);
+		  // Collector hitCollector = new OneDimensionalObjectHitCollector(resolvedMapper, data, true);
 		//searchProvider.search(query, remoteUser, hitCollector);
 		return data;
-	}*/
+	}
 	
 	  private TimeZone getTimeZone() {
 	        return timeZoneManager.getLoggedInUserTimeZone();
