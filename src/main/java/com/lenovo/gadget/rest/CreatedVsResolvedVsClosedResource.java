@@ -1,33 +1,5 @@
 package com.lenovo.gadget.rest;
 
-import com.atlassian.core.util.bean.PagerFilter;
-import com.atlassian.jira.bc.issue.search.SearchService;
-import com.atlassian.jira.charts.Chart;
-import com.atlassian.jira.charts.ChartFactory;
-import com.atlassian.jira.charts.jfreechart.TimePeriodUtils;
-import com.atlassian.jira.charts.util.ChartUtils;
-import com.atlassian.jira.config.ConstantsManager;
-import com.atlassian.jira.issue.Issue;
-import com.atlassian.jira.issue.IssueConstant;
-import com.atlassian.jira.issue.search.SearchException;
-import com.atlassian.jira.issue.search.SearchRequest;
-import com.atlassian.jira.issue.search.SearchResults;
-import com.atlassian.jira.issue.statistics.StatisticsMapper;
-import com.atlassian.jira.issue.statistics.StatusStatisticsMapper;
-import com.atlassian.jira.project.Project;
-import com.atlassian.jira.project.ProjectManager;
-import com.atlassian.jira.security.JiraAuthenticationContext;
-import com.atlassian.jira.security.PermissionManager;
-import com.atlassian.jira.timezone.TimeZoneManager;
-import com.atlassian.jira.user.ApplicationUser;
-import com.atlassian.jira.util.ErrorCollection;
-import com.atlassian.jira.util.SimpleErrorCollection;
-import com.atlassian.jira.util.ErrorCollection.Reason;
-import com.atlassian.jira.util.velocity.VelocityRequestContextFactory;
-import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
-import com.atlassian.plugins.rest.common.security.AnonymousAllowed;
-import com.atlassian.query.Query;
-
 import static com.atlassian.jira.permission.ProjectPermissions.BROWSE_PROJECTS;
 
 import java.io.IOException;
@@ -40,7 +12,11 @@ import java.util.TreeMap;
 
 import javax.inject.Inject;
 import javax.servlet.http.HttpServletRequest;
-import javax.ws.rs.*;
+import javax.ws.rs.DefaultValue;
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -50,6 +26,32 @@ import org.jfree.chart.urls.XYURLGenerator;
 import org.jfree.data.category.CategoryDataset;
 import org.jfree.data.time.RegularTimePeriod;
 import org.jfree.data.xy.XYDataset;
+
+import com.atlassian.jira.bc.issue.search.SearchService;
+import com.atlassian.jira.charts.Chart;
+import com.atlassian.jira.charts.ChartFactory;
+import com.atlassian.jira.charts.jfreechart.TimePeriodUtils;
+import com.atlassian.jira.charts.util.ChartUtils;
+import com.atlassian.jira.config.ConstantsManager;
+import com.atlassian.jira.issue.Issue;
+import com.atlassian.jira.issue.search.SearchException;
+import com.atlassian.jira.issue.search.SearchRequest;
+import com.atlassian.jira.issue.search.SearchResults;
+import com.atlassian.jira.issue.statistics.StatusStatisticsMapper;
+import com.atlassian.jira.project.Project;
+import com.atlassian.jira.project.ProjectManager;
+import com.atlassian.jira.security.JiraAuthenticationContext;
+import com.atlassian.jira.security.PermissionManager;
+import com.atlassian.jira.timezone.TimeZoneManager;
+import com.atlassian.jira.user.ApplicationUser;
+import com.atlassian.jira.util.ErrorCollection;
+import com.atlassian.jira.util.ErrorCollection.Reason;
+import com.atlassian.jira.util.SimpleErrorCollection;
+import com.atlassian.jira.util.velocity.VelocityRequestContextFactory;
+import com.atlassian.jira.web.bean.PagerFilter;
+import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
+import com.atlassian.plugins.rest.common.security.AnonymousAllowed;
+import com.atlassian.query.Query;
 
 /**
  * A resource of message.
@@ -128,7 +130,7 @@ public class CreatedVsResolvedVsClosedResource {
 			@QueryParam(HEIGHT) @DefaultValue("300") final int height,
 			@QueryParam(INLINE) @DefaultValue("false") final boolean inline)
     {
-    	System.out.println("chartutils : " + chartUtils);
+    	/*System.out.println("chartutils : " + chartUtils);
 		System.out.println("chartFactory: " + chartFactory);
 		//System.out.println("applicationProperties: " + applicationProperties);
 		System.out.println("timeZoneManager : " + timeZoneManager);
@@ -136,7 +138,7 @@ public class CreatedVsResolvedVsClosedResource {
 		System.out.println("permissionManager: " + permissionManager);
 		System.out.println("permissionManager: " + permissionManager);
 		System.out.println("velocityRequestContextFactory: " + velocityRequestContextFactory);
-		System.out.println("searchService: " + searchService);
+		System.out.println("searchService: " + searchService);*/
 
 		if (StringUtils.isNotBlank(queryString) && !queryString.contains("-")) {
 			queryString = "filter-" + queryString;
@@ -146,36 +148,29 @@ public class CreatedVsResolvedVsClosedResource {
 		final ApplicationUser user = authenticationContext.getLoggedInUser();
 		final SearchRequest searchRequest;
 		final Map<String, Object> params = new HashMap<String, Object>();
-		Project prjs = projectManager.getProjectByCurrentKey("TEST");
-		System.out.println("Projects: " +  prjs.getId());
+		/*Project prjs = projectManager.getProjectByCurrentKey("TEST");
+		System.out.println("Projects: " +  prjs.getId());*/
 		
 		searchRequest = getSearchRequestAndValidate(queryString, errors, params);
-		//		final ChartFactory.PeriodName period = resourceDateValidator.validatePeriod(PERIOD_NAME, periodName, errors);
-		//		final int numberOfDays = resourceDateValidator.validateDaysPrevious(DAYS_NAME, period, days, errors);
-		//final ChartFactory.VersionLabel label = validateVersionLabel(versionLabel, errors);
+		/*final ChartFactory.PeriodName period = resourceDateValidator.validatePeriod(PERIOD_NAME, periodName, errors);
+		final int numberOfDays = resourceDateValidator.validateDaysPrevious(DAYS_NAME, period, days, errors);
 
-		/*if (!errors.isEmpty()) {
+		if (!errors.isEmpty()) {
 			return Response.status(400).entity(new CreatedVsResolvedVsClosedResourceModel("There was some problem")).build();
 		}*/
 		
 		final ChartFactory.ChartContext context = new ChartFactory.ChartContext(user, searchRequest, width, height, inline);
 		try{
-			SearchResults searchResults =  searchService.search(user, searchRequest.getQuery(),new com.atlassian.jira.web.bean.PagerFilter().getUnlimitedFilter());
+			SearchResults searchResults =  searchService.search(user, searchRequest.getQuery(),PagerFilter.getUnlimitedFilter());
+			StringBuffer output =  new StringBuffer();
 			for(Issue issue: searchResults.getIssues()){
-				System.out.println(issue.getSummary() + issue.getCreated() +" ::::::: " + issue.getStatus().getName());
+				output.append("\n"+issue.getSummary()  +" ::::::: " + issue.getCreated() +" ::::::: " + issue.getStatus().getName() +" ::::::: " + issue.getAssigneeUser());
 			} 
 			final Chart chart = chartFactory.generateCreatedVsResolvedChart(context, 10,ChartFactory.PeriodName.valueOf("daily") , ChartFactory.VersionLabel.valueOf("major"), isCumulative, showUnresolvedTrend);
-			System.out.println(chart.toString());
 
-			//final String location = chart.getLocation();
-			//final String title = getFilterTitle(params);
-			//final String filterUrl = getFilterUrl(params);
 			final Integer issuesCreated = (Integer) chart.getParameters().get(NUM_CREATED_ISSUES);
-			System.out.println("issues created : " + issuesCreated);
 			final Integer issuesResolved = (Integer) chart.getParameters().get(NUM_RESOLVED_ISSUES);
-			System.out.println("issues resolved : " + issuesResolved);
 			final Integer issuesClosed = (Integer) chart.getParameters().get(NUM_CLOSED_ISSUES);
-			System.out.println("closed issues : " + issuesClosed);
 			final String imageMap = chart.getImageMap();
 			final String imageMapName = chart.getImageMapName();
 
@@ -187,7 +182,8 @@ public class CreatedVsResolvedVsClosedResource {
 				data = generateDataSet(completeDataset, completeUrlGenerator, chartDataset, showUnresolvedTrend);
 			}
 			getResolvedIssues(searchRequest.getQuery(), user);
-			return Response.ok(new CreatedVsResolvedVsClosedResourceModel("Created : " + issuesCreated + " Resolved : " + issuesResolved + " Closed : " + issuesClosed)).build();
+			//return Response.ok(new CreatedVsResolvedVsClosedResourceModel("Created : " + issuesCreated + " Resolved : " + issuesResolved + " Closed : " + issuesClosed)).build();
+			return Response.ok(new CreatedVsResolvedVsClosedResourceModel(output.toString())).build();
 		}catch(Exception ex){
 			ex.printStackTrace();
 		}
