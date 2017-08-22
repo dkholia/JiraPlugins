@@ -1,25 +1,26 @@
 package com.lenovo.gadget.rest;
 
 import javax.xml.bind.annotation.*;
-@XmlRootElement(name = "message")
+
+import com.lenovo.gadget.rest.model.JiraIssueReposnseObject;
+@XmlRootElement(name = "responseData")
 @XmlAccessorType(XmlAccessType.FIELD)
 public class CreatedVsResolvedVsClosedResourceModel {
 
-    @XmlElement(name = "value")
-    private String message;
+    @XmlElement(name = "issueType")
+    private JiraIssueReposnseObject response;
 
-    public CreatedVsResolvedVsClosedResourceModel() {
+    public CreatedVsResolvedVsClosedResourceModel() {}
+
+    public CreatedVsResolvedVsClosedResourceModel(JiraIssueReposnseObject response) {
+        this.response = response;
     }
 
-    public CreatedVsResolvedVsClosedResourceModel(String message) {
-        this.message = message;
+    public JiraIssueReposnseObject getMessage() {
+        return response;
     }
 
-    public String getMessage() {
-        return message;
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
+    public void setMessage(JiraIssueReposnseObject response) {
+        this.response = response;
     }
 }

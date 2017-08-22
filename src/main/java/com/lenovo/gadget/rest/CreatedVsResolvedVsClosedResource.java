@@ -3,9 +3,18 @@ package com.lenovo.gadget.rest;
 import static com.atlassian.jira.permission.ProjectPermissions.BROWSE_PROJECTS;
 
 import java.io.IOException;
+import java.io.Serializable;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.TreeMap;
@@ -22,15 +31,11 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import org.apache.commons.lang3.StringUtils;
-import org.jfree.chart.urls.XYURLGenerator;
-import org.jfree.data.category.CategoryDataset;
 import org.jfree.data.time.RegularTimePeriod;
-import org.jfree.data.xy.XYDataset;
 
 import com.atlassian.jira.bc.issue.search.SearchService;
 import com.atlassian.jira.charts.Chart;
 import com.atlassian.jira.charts.ChartFactory;
-import com.atlassian.jira.charts.jfreechart.TimePeriodUtils;
 import com.atlassian.jira.charts.util.ChartUtils;
 import com.atlassian.jira.config.ConstantsManager;
 import com.atlassian.jira.issue.Issue;
@@ -50,8 +55,11 @@ import com.atlassian.jira.util.SimpleErrorCollection;
 import com.atlassian.jira.util.velocity.VelocityRequestContextFactory;
 import com.atlassian.jira.web.bean.PagerFilter;
 import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
-import com.atlassian.plugins.rest.common.security.AnonymousAllowed;
 import com.atlassian.query.Query;
+import com.lenovo.gadget.rest.model.CustomIssue;
+import com.lenovo.gadget.rest.model.JiraIssueReposnseObject;
+
+import sun.java2d.pipe.AATextRenderer;
 
 /**
  * A resource of message.
@@ -78,10 +86,10 @@ public class CreatedVsResolvedVsClosedResource {
 	static final String PROJECT = "project";
 	private static final String SEARCH_REQUEST = "searchRequest";
 	
-	//@ComponentImport
+	SimpleDateFormat simpleDateFormat = new SimpleDateFormat("MM/dd/yyyy");
+	
 	@Inject
 	private ChartUtils chartUtils;
-	@ComponentImport
 	@Inject
 	private  ChartFactory chartFactory;
 	@ComponentImport
@@ -102,12 +110,8 @@ public class CreatedVsResolvedVsClosedResource {
 	@ComponentImport
 	@Inject
 	protected  SearchService searchService;
-	/*@ComponentImport
-	@Inject
-	private ApplicationProperties applicationProperties; */
 
 	@Inject
-	@ComponentImport
 	private ProjectManager projectManager;
 	
 	@Inject
@@ -116,7 +120,6 @@ public class CreatedVsResolvedVsClosedResource {
 	
 	
     @GET
-    @AnonymousAllowed
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     public Response getMessage(@Context HttpServletRequest request,
 			@QueryParam(QUERY_STRING) String queryString,
@@ -128,26 +131,20 @@ public class CreatedVsResolvedVsClosedResource {
 			@QueryParam(RETURN_DATA) @DefaultValue("false") final boolean returnData,
 			@QueryParam(WIDTH) @DefaultValue("450") final int width,
 			@QueryParam(HEIGHT) @DefaultValue("300") final int height,
-			@QueryParam(INLINE) @DefaultValue("false") final boolean inline)
+			@QueryParam(INLINE) @DefaultValue("false") final boolean inline) throws Exception
     {
-    	/*System.out.println("chartutils : " + chartUtils);
-		System.out.println("chartFactory: " + chartFactory);
-		//System.out.println("applicationProperties: " + applicationProperties);
-		System.out.println("timeZoneManager : " + timeZoneManager);
-		System.out.println("authenticationContext: " + authenticationContext);
-		System.out.println("permissionManager: " + permissionManager);
-		System.out.println("permissionManager: " + permissionManager);
-		System.out.println("velocityRequestContextFactory: " + velocityRequestContextFactory);
-		System.out.println("searchService: " + searchService);*/
-
-		if (StringUtils.isNotBlank(queryString) && !queryString.contains("-")) {
+    	
+		System.out.println(queryString);
+    	if (StringUtils.isNotBlank(queryString) && !queryString.contains("-")) {
 			queryString = "filter-" + queryString;
 		}
-
+		
 		final Collection<ErrorCollection> errors = new ArrayList<ErrorCollection>();
 		final ApplicationUser user = authenticationContext.getLoggedInUser();
 		final SearchRequest searchRequest;
 		final Map<String, Object> params = new HashMap<String, Object>();
+		
+		
 		/*Project prjs = projectManager.getProjectByCurrentKey("TEST");
 		System.out.println("Projects: " +  prjs.getId());*/
 		
@@ -162,10 +159,15 @@ public class CreatedVsResolvedVsClosedResource {
 		final ChartFactory.ChartContext context = new ChartFactory.ChartContext(user, searchRequest, width, height, inline);
 		try{
 			SearchResults searchResults =  searchService.search(user, searchRequest.getQuery(),PagerFilter.getUnlimitedFilter());
-			StringBuffer output =  new StringBuffer();
+			//StringBuffer output =  new StringBuffer();
+			JiraIssueReposnseObject issueReposnseObject = new JiraIssueReposnseObject();
 			for(Issue issue: searchResults.getIssues()){
-				output.append("\n"+issue.getSummary()  +" ::::::: " + issue.getCreated() +" ::::::: " + issue.getStatus().getName() +" ::::::: " + issue.getAssigneeUser());
+				if(issue.getAssigneeUser()!=null) {
+					issueReposnseObject = processIssue(issueReposnseObject, issue);
+					//output.append("\n"+issue.getSummary()  +" ::::::: " + issue.getCreated() +" ::::::: " + issue.getStatus().getName() +" ::::::: " + issue.getAssigneeUser().getDisplayName());
+				}
 			} 
+			System.out.println(issueReposnseObject.toString());
 			final Chart chart = chartFactory.generateCreatedVsResolvedChart(context, 10,ChartFactory.PeriodName.valueOf("daily") , ChartFactory.VersionLabel.valueOf("major"), isCumulative, showUnresolvedTrend);
 
 			final Integer issuesCreated = (Integer) chart.getParameters().get(NUM_CREATED_ISSUES);
@@ -173,23 +175,49 @@ public class CreatedVsResolvedVsClosedResource {
 			final Integer issuesClosed = (Integer) chart.getParameters().get(NUM_CLOSED_ISSUES);
 			final String imageMap = chart.getImageMap();
 			final String imageMapName = chart.getImageMapName();
-
-			DataRow[] data = null;
-			if (true) {
+			
+			//TT6 ::::::: 2017-08-06 18:47:43.0 ::::::: Open ::::::: Deep Chandra Kholia 
+			
+			/*if (true) {
 				final CategoryDataset completeDataset = (CategoryDataset) chart.getParameters().get("completeDataset");
+				System.out.println("completeDataset.getColumnKeys() :::" +  completeDataset.getColumnKeys().toString());
 				final XYDataset chartDataset = (XYDataset) chart.getParameters().get("chartDataset");
 				final XYURLGenerator completeUrlGenerator = (XYURLGenerator) chart.getParameters().get("completeDatasetUrlGenerator");
 				data = generateDataSet(completeDataset, completeUrlGenerator, chartDataset, showUnresolvedTrend);
-			}
+			}*/
+			
+			DataRow[] data =   generateDataSet(searchResults.getIssues());
 			getResolvedIssues(searchRequest.getQuery(), user);
-			//return Response.ok(new CreatedVsResolvedVsClosedResourceModel("Created : " + issuesCreated + " Resolved : " + issuesResolved + " Closed : " + issuesClosed)).build();
-			return Response.ok(new CreatedVsResolvedVsClosedResourceModel(output.toString())).build();
+			return Response.ok(new CreatedVsResolvedVsClosedResourceModel(issueReposnseObject)).build();
 		}catch(Exception ex){
-			ex.printStackTrace();
+			throw ex;
 		}
-       return Response.ok(new CreatedVsResolvedVsClosedResourceModel("Hello World")).build();
     }
-    private ChartFactory.VersionLabel validateVersionLabel(String versionLabel, Collection<ErrorCollection> errors) {
+	private JiraIssueReposnseObject processIssue(JiraIssueReposnseObject issueReposnseObject, Issue issue) throws ParseException {
+		Map<String, ArrayList<CustomIssue>> issueMap = issueReposnseObject.getIssueMap();
+		String theDate = simpleDateFormat.format(new Date(issue.getCreated().getTime()));
+		ArrayList<CustomIssue> issueList = new ArrayList<CustomIssue>();
+		if(issueMap.get(theDate)==null){
+			issueList.add(new CustomIssue(issue.getStatus().getName(),1));
+			issueMap.put(theDate,issueList);
+		}else{
+			issueList = issueMap.get(theDate);
+			CustomIssue customIssue = new CustomIssue(issue.getStatus().getName(),0);
+			if( issueList.contains(customIssue)){
+				CustomIssue issue1 = issueList.get(issueList.indexOf(customIssue));
+				issue1.setCount(issue1.getCount()+1);
+				issueList.remove(customIssue);
+				issueList.add(issue1);
+				issueMap.put(theDate, issueList);
+			}
+			else{
+				issueList.add(new CustomIssue(issue.getStatus().getName(),1));
+				issueMap.put(theDate, issueList);
+			}
+		}
+		return issueReposnseObject;
+	}
+	private ChartFactory.VersionLabel validateVersionLabel(String versionLabel, Collection<ErrorCollection> errors) {
 		try {
 			return ChartFactory.VersionLabel.valueOf(versionLabel);
 		} catch (IllegalArgumentException e) {
@@ -197,8 +225,13 @@ public class CreatedVsResolvedVsClosedResource {
 		}
 		return null;
 	}
-
-	private DataRow[] generateDataSet(CategoryDataset dataset, XYURLGenerator urlGenerator, XYDataset chartdataset, boolean showTrend) {
+	
+	private DataRow[] generateDataSet(List<Issue> issues){
+		Instant instant = Instant.now();
+		ZonedDateTime zonedDateTime = Instant.now().atZone(ZoneId.of("US/Eastern")); 
+		return null;
+	}
+	/*private DataRow[] generateDataSet(CategoryDataset dataset, XYURLGenerator urlGenerator, XYDataset chartdataset, boolean showTrend) {
 		final TimePeriodUtils timePeriodUtils = new TimePeriodUtils(timeZoneManager);
 		final DataRow[] data = new DataRow[dataset.getColumnCount()];
 
@@ -222,7 +255,7 @@ public class CreatedVsResolvedVsClosedResource {
 		}
 
 		return data;
-	}
+	}*/
 
 	protected SearchRequest getSearchRequestAndValidate(String queryString, Collection<ErrorCollection> errors, Map<String, Object> params) {
 		SearchRequest searchRequest;
@@ -244,14 +277,14 @@ public class CreatedVsResolvedVsClosedResource {
 		final String queryString = (String) params.get(QUERY_STRING);
 		if (queryString.startsWith(FILTER_PREFIX)) {
 			if (params.get(SEARCH_REQUEST) == null) {
-				errors.add(new SimpleErrorCollection(QUERY_STRING,Reason.valueOf("dashboard.item.error.invalid.filter")));
+				errors.add(new SimpleErrorCollection(QUERY_STRING,Reason.VALIDATION_FAILED));
 			}
 		} else if (queryString.startsWith(PROJECT_PREFIX)) {
 			if (params.get(PROJECT) == null) {
-				errors.add(new SimpleErrorCollection(QUERY_STRING,Reason.valueOf("dashboard.item.error.invalid.project")));
+				errors.add(new SimpleErrorCollection(QUERY_STRING,Reason.NOT_FOUND));
 			} else {
 				if (!permissionManager.hasPermission(BROWSE_PROJECTS, (Project) params.get(PROJECT), authenticationContext.getLoggedInUser())) {
-					errors.add(new SimpleErrorCollection(QUERY_STRING,Reason.valueOf("dashboard.item.error.invalid.project")));
+					errors.add(new SimpleErrorCollection(QUERY_STRING,Reason.NOT_FOUND));
 				}
 			}
 		} else if (queryString.startsWith(JQL_PREFIX)) {
